@@ -1,59 +1,77 @@
 package server
 
 import (
-	"errors"
-	"net/rpc"
-	"net"
-	"log"
-	"net/http"
 	"fmt"
+	"log"
+	"net"
+	"net/http"
+	"net/rpc"
+	"sync"
 )
 
-type Args struct {
-	A, B int
+type GetArgs struct {
+	Key string
 }
 
-type Quotient struct {
-	Quo, Rem int
+type GetReply struct {
+	Err   string
+	Value string
 }
 
-type Arith int
-
-func (t *Arith) Multiply(args *Args, reply *int) error {
-	*reply = args.A * args.B
-	return nil
+type PutArgs struct {
+	Key, Value string
 }
 
-func (t *Arith) Divide(args *Args, quo *Quotient) error {
-	if args.B == 0 {
-		return errors.New("divide by zero")
+type PutReply struct {
+	Err string
+}
+
+// Vendy is a thread-safe key value store
+type Vendy struct {
+	store map[string]string
+	mux   sync.Mutex
+}
+
+func (v *Vendy) Get(args *GetArgs, reply *GetReply) (err error) {
+	v.mux.Lock()
+	defer v.mux.Unlock()
+	if val, exists := v.store[args.Key]; !exists {
+		log.Println("Unfulfilled GET Request")
+		reply.Err = "Requested key does not exist"
+	} else {
+		log.Println("Fulfilled GET Request on Vendy")
+		reply.Value = val
 	}
-	quo.Quo = args.A / args.B
-	quo.Rem = args.A % args.B
-	return nil
+	return
+}
+
+func (v *Vendy) Put(args *PutArgs, reply *PutReply) (err error) {
+	v.mux.Lock()
+	defer v.mux.Unlock()
+	v.store[args.Key] = args.Value
+	log.Println("Fulfilled PUT Request on Vendy")
+	return
 }
 
 type Server struct {
-	Port uint
+	Port     uint
 	listener net.Listener
 }
 
 func (server *Server) Stop() (err error) {
 	if server.listener != nil {
+		log.Println("GOODBYE")
 		server.listener.Close()
 	}
 	return
 }
 
 func (server *Server) Start() (err error) {
-	if server.Port < 0 {
-		err = errors.New("Port is missing!")
-		return
-	}
-	arith := new(Arith)
-	rpc.Register(arith)
+	vendy := new(Vendy)
+	vendy.store = make(map[string]string)
+	err = rpc.Register(vendy)
 	rpc.HandleHTTP()
-	server.listener, err = net.Listen("tcp", fmt.Sprint(":",server.Port))
+	server.listener, err = net.Listen("tcp", fmt.Sprint(":", server.Port))
 
 	if err != nil {
 		log.Fatal("Listen error:", err)

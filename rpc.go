@@ -30,22 +30,27 @@ func startServer(s *server.Server) {
 
 func testClient(c *client.Client) (err error) {
 	log.Println("######################## Synchronuos Call ##############################")
-	args := &server.Args{30, 10}
-	var reply int
-	err = c.Client.Call("Arith.Multiply", args, &reply)
+	getArgs := &server.GetArgs{Key: "name"}
+	putArgs := &server.PutArgs{Key: "name", Value: "Raj"}
+	var putReply server.PutReply
+	var getReply server.GetReply
+	err = c.Client.Call("Vendy.Put", putArgs, &putReply)
 	if err != nil {
-		log.Fatal("arith multiply error:", err)
+		log.Fatal("Put Error:", err)
+	} else if putReply.Err != "" {
+		log.Fatal("Put Error:", putReply.Err)
 	}
-	log.Printf("Arith: %d*%d=%d\n", args.A, args.B, reply)
+	log.Println("Put: " + putArgs.Key + "->" + putArgs.Value)
 	log.Println("####################### Aysnchronous Call ##############################")
-	quotient := new(server.Quotient)
-	divCall := c.Client.Go("Arith.Divide", args, quotient, nil)
+	getCall := c.Client.Go("Vendy.Get", getArgs, &getReply, nil)
 	log.Println("printing asynchronously with rpc")
-	divCall = <-divCall.Done
-	if divCall.Error != nil {
-		log.Fatal("arith div error:", divCall.Error)
+	getCall = <-getCall.Done
+	if getCall.Error != nil {
+		log.Fatal("Get Error:", getCall.Error)
+	} else if getReply.Err != "" {
+		log.Fatal("Get Error:", getReply.Err)
 	} else {
-		log.Printf("Arith: %d/%d=%dx + %d", args.A, args.B, quotient.Quo, quotient.Rem)
+		log.Println("Get: " + getArgs.Key + "->" + getReply.Value)
 	}
 	return
 }
