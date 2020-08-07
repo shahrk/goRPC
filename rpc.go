@@ -23,18 +23,29 @@ func handleSignal(s *server.Server) {
 }
 
 func startServer(s *server.Server) {
-	defer s.Stop()
-	s.Start()
+	defer stopServer(s)
+	err := s.Start()
+	if err != nil {
+		log.Fatal("Error starting server:", err)
+		return
+	}
 	handleSignal(s)
 }
 
-func testClient(c *client.Client) (err error) {
+func stopServer(s *server.Server) {
+	err := s.Stop()
+	if err != nil {
+		log.Fatal("Error while stopping server:", err)
+	}
+}
+
+func testClient(c *client.Client) {
 	log.Println("######################## Synchronuos Call ##############################")
 	getArgs := &server.GetArgs{Key: "name"}
 	putArgs := &server.PutArgs{Key: "name", Value: "Raj"}
 	var putReply server.PutReply
 	var getReply server.GetReply
-	err = c.Client.Call("Vendy.Put", putArgs, &putReply)
+	err := c.Client.Call("Vendy.Put", putArgs, &putReply)
 	if err != nil {
 		log.Fatal("Put Error:", err)
 	} else if putReply.Err != "" {
@@ -52,7 +63,6 @@ func testClient(c *client.Client) (err error) {
 	} else {
 		log.Println("Get: " + getArgs.Key + "->" + getReply.Value)
 	}
-	return
 }
 
 func main() {
@@ -65,6 +75,10 @@ func main() {
 		return
 	}
 
-	c.Connect()
+	err := c.Connect()
+	if err != nil {
+		log.Fatal("Error connecting client to server:", err)
+		return
+	}
 	testClient(&c)
 }

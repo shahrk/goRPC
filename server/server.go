@@ -70,6 +70,9 @@ func (server *Server) Start() (err error) {
 	vendy := new(Vendy)
 	vendy.store = make(map[string]string)
 	err = rpc.Register(vendy)
+	if err != nil {
+		return
+	}
 	rpc.HandleHTTP()
 	server.listener, err = net.Listen("tcp", fmt.Sprint(":", server.Port))
 
